@@ -51,7 +51,7 @@ packages/client/   features/<feature>/: controllers, client services, shared vie
 - **pnpm workspaces**, pinned with `packageManager`. **Node** is the only runtime, for the server, tests and scripts.
 - Dependencies point one way: `apps → packages/client → packages/domain`, and `apps/api → packages/domain`. `packages/client` imports only `type AppType` from the API, never its code. [§9.4]
 - Folders are grouped by feature inside each app or package, never by role. [ch. 9]
-- `@compean/core` entry points: root (`Observable`, `Controller`, `$S`, `register`, `UserError`, `ToastService`, `Form`, `ErrorReporter`, `changed`), `/react` (`useController`, `<Toaster />`), `/server` (the `app.onError` handler, `loadConfig`), `/testing` (`useTestDatabase`, `resetServices`, recording fakes).
+- `@compean/core`'s entry points and their exports are listed in its README.
 
 ## Domain
 
