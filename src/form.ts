@@ -7,8 +7,16 @@ export interface FormView<V> {
     values: V;
     /** Errors for fields the user has touched, or all of them after a submit. */
     errors: FieldErrors<V>;
+    /** An error that belongs to the whole form (a rule across fields), shown after a submit. */
+    formError: string | null;
     /** True when the current values pass the schema. */
     canSubmit: boolean;
+}
+
+interface Validation<V> {
+    valid: boolean;
+    fieldErrors: FieldErrors<V>;
+    formError: string | null;
 }
 
 /**
@@ -18,6 +26,7 @@ export interface FormView<V> {
 export class Form<S extends z.ZodObject> extends Observable {
     private values: z.input<S>;
     private readonly touched = new Set<keyof z.input<S>>();
+    private submitted = false;
 
     public constructor(
         private readonly schema: S,
@@ -42,27 +51,36 @@ export class Form<S extends z.ZodObject> extends Observable {
     public reset(): void {
         this.values = { ...this.initial };
         this.touched.clear();
+        this.submitted = false;
         this.notify();
     }
 
     public view(): FormView<z.input<S>> {
-        const errors = this.allErrors();
-        const shown: FieldErrors<z.input<S>> = {};
+        const validation = this.validate();
+        const errors: FieldErrors<z.input<S>> = {};
         for (const field of this.touched) {
-            const message = errors[field];
-            if (message) shown[field] = message;
+            const message = validation.fieldErrors[field];
+            if (message) {
+                errors[field] = message;
+            }
         }
-        return { values: this.values, errors: shown, canSubmit: Object.keys(errors).length === 0 };
+        return {
+            values: { ...this.values },
+            errors,
+            formError: this.submitted ? validation.formError : null,
+            canSubmit: validation.valid,
+        };
     }
 
     /**
-     * Runs `action` with the parsed input when it's valid; otherwise shows every field's error and
-     * skips it. A failure inside `action` propagates, so `run()` can report it and the values stay.
+     * Runs `action` with the parsed input when it's valid; otherwise shows every error and skips
+     * it. A failure inside `action` propagates, so `run()` can report it and the values stay.
      */
     public async submit(action: (input: z.output<S>) => Promise<void>): Promise<void> {
         const result = this.schema.safeParse(this.values);
         if (!result.success) {
-            for (const field of Object.keys(this.values) as Array<keyof z.input<S>>) {
+            this.submitted = true;
+            for (const field of Object.keys(this.schema.shape) as Array<keyof z.input<S>>) {
                 this.touched.add(field);
             }
             this.notify();
@@ -71,14 +89,20 @@ export class Form<S extends z.ZodObject> extends Observable {
         await action(result.data);
     }
 
-    private allErrors(): FieldErrors<z.input<S>> {
+    private validate(): Validation<z.input<S>> {
         const result = this.schema.safeParse(this.values);
-        const errors: FieldErrors<z.input<S>> = {};
-        if (result.success) return errors;
+        const validation: Validation<z.input<S>> = { valid: result.success, fieldErrors: {}, formError: null };
+        if (result.success) {
+            return validation;
+        }
         for (const issue of result.error.issues) {
             const field = issue.path[0] as keyof z.input<S> | undefined;
-            if (field !== undefined && !errors[field]) errors[field] = issue.message;
+            if (field === undefined) {
+                validation.formError ??= issue.message;
+            } else if (!validation.fieldErrors[field]) {
+                validation.fieldErrors[field] = issue.message;
+            }
         }
-        return errors;
+        return validation;
     }
 }

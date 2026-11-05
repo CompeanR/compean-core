@@ -86,3 +86,44 @@ describe('loadConfig', () => {
         expect(() => loadConfig(ConfigSchema, { PORT: 'abc' })).toThrow(/Invalid configuration:\n- DATABASE_URL: .+\n- PORT: .+/);
     });
 });
+
+describe('handleErrors with Hono exceptions', () => {
+    beforeEach(() => {
+        resetServices();
+        register(ErrorReporter, new RecordingReporter());
+    });
+
+    it('answers malformed JSON with 400 and a readable message', async () => {
+        const res = await buildApp().request('/applications/a1/transition', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: '{not json',
+        });
+
+        expect(res.status).toBe(400);
+        expect((await res.json()).message).not.toBe('');
+    });
+
+    it('keeps a custom response from an HTTPException, headers included', async () => {
+        const { HTTPException } = await import('hono/http-exception');
+        const app = new Hono().get('/private', () => {
+            throw new HTTPException(401, { res: new Response('Unauthorized', { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } }) });
+        });
+        app.onError(handleErrors());
+
+        const res = await app.request('/private');
+
+        expect(res.status).toBe(401);
+        expect(res.headers.get('WWW-Authenticate')).toBe('Bearer');
+    });
+
+    it('still answers 500 when the reporter itself fails', async () => {
+        register(ErrorReporter, { report: () => { throw new Error('sentry down'); } });
+        const errors = (await import('vitest')).vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        const res = await buildApp().request('/crash');
+
+        expect(res.status).toBe(500);
+        errors.mockRestore();
+    });
+});

@@ -2,13 +2,14 @@ import type { ESLint, Linter, Rule } from 'eslint';
 
 type ImportNode = { source?: { value?: unknown } | null };
 
-const PLATFORM_IMPORT = /^(react|react-dom|react-native)(\/|$)|^react-native-|^@tanstack\/react-|^expo-/;
+const PLATFORM_IMPORT = /^(react|react-dom|react-native|react-router|expo)(\/|$)|^react-native-|^react-router-|^@tanstack\/react-|^expo-|^@expo\/|^@react-navigation\//;
 const DOMAIN_ALLOWED = /^(\.{1,2}\/|zod(\/|$))/;
+const ROUTE_FACTORIES = new Set(['createFileRoute', 'createRoute', 'createRootRoute', 'createRootRouteWithContext', 'createLazyFileRoute']);
 
 /** Which files may import a library that must stay hidden behind one kind of module. */
 const LIBRARY_OWNERS: ReadonlyArray<{ library: RegExp; owner: RegExp; ownerName: string }> = [
     { library: /^@tanstack\/(query-core|react-query)(\/|$)/, owner: /\.service\.tsx?$/, ownerName: 'a client service (*.service.ts)' },
-    { library: /^better-auth(\/|$)/, owner: /auth\.service\.tsx?$/, ownerName: 'the auth service (auth.service.ts)' },
+    { library: /^better-auth(\/|$)/, owner: /(^|[\\/])auth\.service\.tsx?$/, ownerName: 'the auth service (auth.service.ts)' },
 ];
 
 function importSource(node: ImportNode): string | null {
@@ -16,10 +17,42 @@ function importSource(node: ImportNode): string | null {
     return typeof value === 'string' ? value : null;
 }
 
+function propertyName(key: Rule.Node | { type: string; name?: string; value?: unknown }): unknown {
+    if (key.type === 'Identifier') {
+        return (key as { name: string }).name;
+    }
+    if (key.type === 'Literal') {
+        return (key as { value: unknown }).value;
+    }
+    return null;
+}
+
+function calleeName(callee: { type: string; name?: string; callee?: unknown }): string | null {
+    if (callee.type === 'Identifier') {
+        return callee.name ?? null;
+    }
+    if (callee.type === 'CallExpression') {
+        return calleeName(callee.callee as { type: string; name?: string; callee?: unknown });
+    }
+    return null;
+}
+
+/** True for the options object of `createFileRoute('/path')({...})`, `createRoute({...})` and similar. */
+function isRouteDefinition(object: Rule.Node | undefined): boolean {
+    const call = object?.parent;
+    if (object?.type !== 'ObjectExpression' || call?.type !== 'CallExpression') {
+        return false;
+    }
+    const name = calleeName(call.callee as { type: string; name?: string; callee?: unknown });
+    return name !== null && ROUTE_FACTORIES.has(name);
+}
+
 function onImports(check: (node: Rule.Node, source: string) => void): Rule.RuleListener {
     const visit = (node: Rule.Node) => {
         const source = importSource(node as unknown as ImportNode);
-        if (source) check(node, source);
+        if (source) {
+            check(node, source);
+        }
     };
     return { ImportDeclaration: visit, ExportNamedDeclaration: visit, ExportAllDeclaration: visit, ImportExpression: visit };
 }
@@ -33,7 +66,9 @@ const platformFree: Rule.RuleModule = {
     },
     create: (context) =>
         onImports((node, source) => {
-            if (PLATFORM_IMPORT.test(source)) context.report({ node, messageId: 'platform', data: { source } });
+            if (PLATFORM_IMPORT.test(source)) {
+                context.report({ node, messageId: 'platform', data: { source } });
+            }
         }),
 };
 
@@ -46,7 +81,9 @@ const domainPure: Rule.RuleModule = {
     },
     create: (context) =>
         onImports((node, source) => {
-            if (!DOMAIN_ALLOWED.test(source)) context.report({ node, messageId: 'impure', data: { source } });
+            if (!DOMAIN_ALLOWED.test(source)) {
+                context.report({ node, messageId: 'impure', data: { source } });
+            }
         }),
 };
 
@@ -59,9 +96,9 @@ const noRouteLoaders: Rule.RuleModule = {
     },
     create: (context) => ({
         Property(node) {
-            const key = node.key;
-            const name = key.type === 'Identifier' ? key.name : key.type === 'Literal' ? key.value : null;
-            if (name === 'loader') context.report({ node, messageId: 'loader' });
+            if (!node.computed && propertyName(node.key) === 'loader' && isRouteDefinition(node.parent)) {
+                context.report({ node, messageId: 'loader' });
+            }
         },
     }),
 };

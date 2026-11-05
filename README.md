@@ -12,6 +12,8 @@ pnpm add @compean/core zod
 
 Optional peers, by entry point: `react` for `/react`; `hono` and `@hono/zod-validator` for `/server`; `@tanstack/query-core` for `changed()`; `eslint` for `/eslint`. Requires Node 22.12 or later.
 
+Bug reports from `run()` name the controller by its class name, so production builds must keep class names: in Vite, set `esbuild: { keepNames: true }`.
+
 ## Entry points
 
 | Import | Exports | Used in |

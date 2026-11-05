@@ -55,3 +55,26 @@ describe('compeanRules', () => {
         expect(await ruleIds(`import { betterAuth } from 'better-auth';`, 'apps/api/auth.ts')).toEqual([]);
     });
 });
+
+describe('compeanRules, review fixes', () => {
+    it('flags loader only inside a route definition', async () => {
+        expect(await ruleIds(`const { loader } = props;\nconst config = { loader: true };`, 'apps/web/routes/notes.tsx')).toEqual([]);
+        expect(await ruleIds(`export const Route = createRoute({ getParentRoute: () => root, path: '/notes', loader: () => load() });`, 'apps/web/routes/notes.tsx')).toEqual([
+            'compean/no-route-loaders',
+        ]);
+    });
+
+    it('does not treat oauth.service.ts as the auth service', async () => {
+        expect(await ruleIds(`import { createAuthClient } from 'better-auth/client';`, 'packages/client/features/auth/oauth.service.ts')).toEqual([
+            'compean/library-owners',
+        ]);
+    });
+
+    it('treats Expo, React Router and React Navigation as platform code', async () => {
+        for (const source of ['expo', '@expo/vector-icons', 'react-router', '@react-navigation/native']) {
+            expect(await ruleIds(`import x from '${source}';`, 'packages/client/features/notes/notes.controller.ts')).toEqual([
+                'compean/platform-free',
+            ]);
+        }
+    });
+});

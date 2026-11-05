@@ -25,7 +25,9 @@ export class ToastService extends Observable {
 
     /** Hides the toast with this id; a newer toast stays. */
     public dismiss(id: number): void {
-        if (this.current?.id !== id) return;
+        if (this.current?.id !== id) {
+            return;
+        }
         this.current = null;
         this.notify();
     }

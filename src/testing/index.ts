@@ -18,8 +18,12 @@ export function recordingNavigation<T extends object>(): Recorded<T> {
     const calls: Array<[string, ...unknown[]]> = [];
     return new Proxy({ calls } as Recorded<T>, {
         get(target, property) {
-            if (property === 'calls') return calls;
-            if (typeof property !== 'string') return Reflect.get(target, property);
+            if (property === 'calls') {
+                return calls;
+            }
+            if (property === 'then' || typeof property !== 'string') {
+                return Reflect.get(target, property);
+            }
             return (...args: unknown[]) => {
                 calls.push([property, ...args]);
             };

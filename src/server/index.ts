@@ -3,8 +3,7 @@ import type { ErrorHandler, ValidationTargets } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { z } from 'zod';
-import { $S } from '../registry.js';
-import { ErrorReporter } from '../reporting.js';
+import { reportSafely } from '../report-safely.js';
 import { UserError } from '../user-error.js';
 
 const GENERIC_MESSAGE = 'Something went wrong';
@@ -19,9 +18,12 @@ export function handleErrors(): ErrorHandler {
             return c.json({ message: error.message }, error.status);
         }
         if (error instanceof HTTPException && error.status < 500) {
-            return c.json({ message: error.message }, error.status as ContentfulStatusCode);
+            if (error.res) {
+                return error.getResponse();
+            }
+            return c.json({ message: error.message || 'The request could not be processed' }, error.status as ContentfulStatusCode);
         }
-        $S(ErrorReporter).report(error, { where: `${c.req.method} ${c.req.path}` });
+        reportSafely(error, { where: `${c.req.method} ${c.req.path}` });
         return c.json({ message: GENERIC_MESSAGE }, 500);
     };
 }

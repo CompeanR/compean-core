@@ -99,7 +99,6 @@ interface ProfileState {
 
 class ProfileController extends Controller<ProfileState> {
     public name = '';
-    public loads = 0;
 
     public constructor(private readonly loadName: () => Promise<string>) {
         super();
@@ -115,7 +114,6 @@ class ProfileController extends Controller<ProfileState> {
 
     public reload(): Promise<void> {
         return this.run(async () => {
-            this.loads += 1;
             this.name = await this.loadName();
         });
     }
@@ -234,7 +232,7 @@ describe('Form', () => {
 
         form.set('body', 'Call the recruiter');
 
-        expect(form.view()).toEqual({ values: { body: 'Call the recruiter' }, errors: {}, canSubmit: true });
+        expect(form.view()).toEqual({ values: { body: 'Call the recruiter' }, errors: {}, formError: null, canSubmit: true });
     });
 
     it('runs the action with the parsed input only when valid', async () => {
@@ -270,7 +268,7 @@ describe('Form', () => {
 
         form.reset();
 
-        expect(form.view()).toEqual({ values: { body: '' }, errors: {}, canSubmit: false });
+        expect(form.view()).toEqual({ values: { body: '' }, errors: {}, formError: null, canSubmit: false });
     });
 
     it('notifies on every change', () => {
@@ -351,5 +349,106 @@ describe('recordingNavigation', () => {
         navigation.back();
 
         expect(navigation.calls).toEqual([['toResumeVersion', 'v1'], ['back']]);
+    });
+});
+
+describe('review fixes', () => {
+    let reporter: RecordingReporter;
+    let toasts: ToastService;
+
+    beforeEach(() => {
+        resetServices();
+        reporter = new RecordingReporter();
+        toasts = new ToastService();
+        register(ErrorReporter, reporter);
+        register(ToastService, toasts);
+    });
+
+    it('cannot submit, and shows a form error, when a form-level rule fails', async () => {
+        const PasswordSchema = z
+            .object({ password: z.string(), confirm: z.string() })
+            .refine((v) => v.password === v.confirm, 'Passwords must match');
+        const form = new Form(PasswordSchema, { password: 'a', confirm: 'b' });
+        const action = vi.fn(async () => {});
+
+        expect(form.view().canSubmit).toBe(false);
+        await form.submit(action);
+
+        expect(action).not.toHaveBeenCalled();
+        expect(form.view().formError).toBe('Passwords must match');
+    });
+
+    it('shows errors after submit for schema fields missing from the initial values', async () => {
+        const Schema = z.object({ body: z.string().min(1, 'Write something first'), title: z.string({ error: 'Add a title' }) });
+        const form = new Form(Schema, { body: 'hello' } as z.input<typeof Schema>);
+
+        await form.submit(async () => {});
+
+        expect(form.view().errors).toEqual({ title: 'Add a title' });
+    });
+
+    it('returns a copy of the values, not its own object', () => {
+        const form = new Form(NoteSchema, { body: 'a' });
+        (form.view().values as { body: string }).body = 'changed';
+
+        expect(form.view().values.body).toBe('a');
+    });
+
+    it('lets only the loading run decide the status; an action meanwhile uses the toast path', async () => {
+        let finishLoad!: (name: string) => void;
+        const controller = new ProfileController(() => new Promise((resolve) => { finishLoad = resolve; }));
+        const load = controller.reload();
+
+        await controller.rename(async () => { throw new UserError('Already saved', 409); });
+        expect(controller.state.status).toBe('loading');
+        expect(toasts.latest()?.message).toBe('Already saved');
+
+        await controller.rename(async () => {});
+        expect(controller.state.status).toBe('loading');
+
+        finishLoad('Ada');
+        await load;
+        expect(controller.state.status).toBe('ready');
+    });
+
+    it('keeps a UserError message as the load error, without reporting it', async () => {
+        const controller = new ProfileController(async () => { throw new UserError('Application not found', 404); });
+
+        await controller.reload();
+
+        expect(controller.state.status).toBe('error');
+        expect((controller as unknown as { loadError: string }).loadError).toBe('Application not found');
+        expect(reporter.reports).toEqual([]);
+    });
+
+    it('still shows the toast when the reporter itself fails', async () => {
+        register(ErrorReporter, { report: () => { throw new Error('sentry down'); } });
+        const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const controller = new ProfileController(async () => 'Ada');
+        await controller.reload();
+
+        await expect(controller.rename(async () => { throw new Error('bug'); })).resolves.toBeUndefined();
+
+        expect(toasts.latest()?.message).toBe('Something went wrong. Try again.');
+        expect(errors).toHaveBeenCalled();
+        errors.mockRestore();
+    });
+
+    it('turns a 4xx without a readable message into a plain Error', async () => {
+        const error = await readJson(Promise.resolve(response(400, undefined))).catch((e) => e);
+
+        expect(error).not.toBeInstanceOf(UserError);
+    });
+
+    it('maps a 4xx outside the known statuses to a 400 UserError', async () => {
+        const error = await readJson(Promise.resolve(response(422, { message: 'Too many notes' }))).catch((e) => e);
+
+        expect(error).toMatchObject({ message: 'Too many notes', status: 400 });
+    });
+
+    it('can be awaited without hanging', async () => {
+        const navigation = recordingNavigation<{ back(): void }>();
+
+        await expect(Promise.resolve(navigation)).resolves.toBe(navigation);
     });
 });

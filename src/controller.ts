@@ -1,6 +1,6 @@
 import { Observable } from './observable.js';
 import { $S } from './registry.js';
-import { ErrorReporter } from './reporting.js';
+import { reportSafely } from './report-safely.js';
 import { ToastService } from './toast.service.js';
 import { UserError } from './user-error.js';
 
@@ -16,6 +16,7 @@ export abstract class Controller<TState> extends Observable {
     private readonly cleanups: Array<() => void> = [];
     private currentStatus: ControllerStatus = 'loading';
     private currentLoadError: string | null = null;
+    private loadInFlight = false;
 
     /** Display-ready values for the screen. */
     public abstract get state(): TState;
@@ -30,7 +31,7 @@ export abstract class Controller<TState> extends Observable {
         }
     }
 
-    /** 'loading' until the first successful `run()`; 'error' if that first run failed. */
+    /** 'loading' until the loading run succeeds; 'error' if it failed. */
     protected get status(): ControllerStatus {
         return this.currentStatus;
     }
@@ -46,30 +47,41 @@ export abstract class Controller<TState> extends Observable {
     }
 
     /**
-     * Runs async work and handles every failure. Before the screen has loaded, a failure becomes
-     * the 'error' status; afterwards it becomes an error toast. A UserError shows its own message;
-     * anything else shows a generic one and is reported as a bug. Callers write no try/catch.
+     * Runs async work and handles every failure. The first run while the screen isn't loaded is
+     * the loading run: it decides the status ('ready' or 'error'). Every other run reports a
+     * failure as an error toast. A UserError shows its own message; anything else shows a generic
+     * one and is reported as a bug. Callers write no try/catch.
      */
     protected async run(task: () => Promise<void>): Promise<void> {
+        const isLoadingRun = this.currentStatus !== 'ready' && !this.loadInFlight;
+        if (isLoadingRun) {
+            this.loadInFlight = true;
+        }
         try {
             await task();
-            if (this.currentStatus !== 'ready') {
-                this.currentStatus = 'ready';
-                this.currentLoadError = null;
-                this.notify();
+            if (isLoadingRun) {
+                this.settle('ready', null);
             }
         } catch (error) {
             const message = error instanceof UserError ? error.message : GENERIC_MESSAGE;
             if (!(error instanceof UserError)) {
-                $S(ErrorReporter).report(error, { where: this.constructor.name });
+                reportSafely(error, { where: this.constructor.name });
             }
-            if (this.currentStatus === 'ready') {
-                $S(ToastService).show(message, 'error');
+            if (isLoadingRun) {
+                this.settle('error', message);
             } else {
-                this.currentStatus = 'error';
-                this.currentLoadError = message;
-                this.notify();
+                $S(ToastService).show(message, 'error');
+            }
+        } finally {
+            if (isLoadingRun) {
+                this.loadInFlight = false;
             }
         }
+    }
+
+    private settle(status: ControllerStatus, loadError: string | null): void {
+        this.currentStatus = status;
+        this.currentLoadError = loadError;
+        this.notify();
     }
 }

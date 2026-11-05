@@ -6,10 +6,10 @@ export interface ReportContext {
 
 /**
  * Where bugs go. Register one per app in boot.ts: the console locally and in tests, a vendor
- * adapter such as Sentry in production. Only `run()` and the server's error handler call it.
+ * adapter such as Sentry in production. Only `run()` and the server's error handler call it,
+ * and they survive a reporter that throws.
  */
 export abstract class ErrorReporter {
-    /** Records a bug. Never throws: a reporter that fails falls back to the console. */
     public abstract report(error: unknown, context: ReportContext): void;
 }
 

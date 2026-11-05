@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { $S, Controller, register, ToastService } from '../index.js';
@@ -81,6 +82,55 @@ describe('useController', () => {
         unmount();
 
         expect(controller.disposed).toBe(1);
+    });
+});
+
+describe('useController, review fixes', () => {
+    beforeEach(() => {
+        CounterController.created = 0;
+        latest = null;
+    });
+    afterEach(cleanup);
+
+    it('never initializes a controller it already disposed, under StrictMode', () => {
+        const controllers: CounterController[] = [];
+        function Screen() {
+            const { controller } = useController(() => {
+                const created = new CounterController('a');
+                controllers.push(created);
+                return created;
+            }, 'a');
+            latest = controller;
+            return null;
+        }
+
+        render(<StrictMode><Screen /></StrictMode>);
+
+        for (const controller of controllers) {
+            expect(controller.initialized - controller.disposed).toBeLessThanOrEqual(1);
+            if (controller.disposed > 0) {
+                expect(controller.initialized).toBeLessThanOrEqual(controller.disposed);
+            }
+        }
+        expect(latest!.initialized).toBe(1);
+        expect(latest!.disposed).toBe(0);
+    });
+
+    it('never renders the new controller with the old one\'s state', () => {
+        const rendered: string[] = [];
+        function Screen({ id }: { id: string }) {
+            const { state, controller } = useController(() => new CounterController(id), id);
+            latest = controller;
+            rendered.push(`${controller.id}:${state.count}`);
+            return null;
+        }
+        const { rerender } = render(<Screen id="a" />);
+        act(() => latest!.increment());
+        act(() => latest!.increment());
+
+        rerender(<Screen id="b" />);
+
+        expect(rendered).not.toContain('b:2');
     });
 });
 
