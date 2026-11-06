@@ -14,8 +14,14 @@ const defaults = new Map<Token<unknown>, () => unknown>([
     [ErrorReporter, () => new ConsoleReporter()],
 ]);
 
-/** Makes `instance` the one `$S(token)` returns. Called from boot.ts and from tests. */
-export function register<T>(token: Token<T>, instance: T): void {
+/** What callers of `$S(token)` can use: the class's public members, so a test fake needs only those. */
+type PublicShape<T> = { [K in keyof T]: T[K] };
+
+/**
+ * Makes `instance` the one `$S(token)` returns. Called from boot.ts and from tests. The type comes
+ * from the class alone; `instance` must offer its public members, so a fake with extra fields fits.
+ */
+export function register<T>(token: Token<T>, instance: NoInfer<PublicShape<T>>): void {
     services.set(token, instance);
 }
 
