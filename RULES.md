@@ -4,6 +4,10 @@ Conventions for every app built on `@compean/core`. They apply on top of the `co
 
 A rule a tool can check is enforced by `@compean/core/eslint` and listed in [Enforced by lint](#enforced-by-lint). A new kind of file, a new dependency direction or an exception to a rule needs a design decision before code, not a local workaround.
 
+## Comments
+
+Comments follow `code-rules/comments.md`. Decisions that span modules go in the README's design notes, with a pointer from the code. [ch. 12, ch. 13]
+
 ## Glossary
 
 | Term | Meaning |
@@ -22,21 +26,36 @@ A rule a tool can check is enforced by `@compean/core/eslint` and listed in [Enf
 | **`$S`** | The service registry. `register(Class, instance)` in `boot.ts`; `$S(Class)` everywhere else it's allowed. |
 | **`boot.ts`** | The composition root of each app: the one place that builds services and wires their dependencies. |
 | **`UserError`** | An error the user can fix or should be told about. Its message is shown verbatim. Everything else is a bug. |
-| **Resource** | A typed name (`'applications'`) for a kind of server data, used to mark cached data stale. |
+| **Resource** | A name for a kind of server data (`'applications'`), used to mark cached data stale. Resources are a typed union in `packages/domain`, so a typo is a compile error. |
 
 ## File roles
 
-These eleven suffixes are the only ones. The folder is the feature; the suffix is the role.
+These eleven file roles are the only ones. The folder is the feature; the suffix is the role.
 
-| Where | Suffix |
+| Where | Role |
 |---|---|
 | `packages/domain` | `*.model.ts`, `*.schema.ts`, `*.policy.ts` |
 | `packages/client` | `*.controller.ts`, `*.service.ts`, `*.view-model.ts` |
 | `apps/api` | `*.routes.ts`, `*.service.ts`, `*.repository.ts` |
-| any app | `*.port.ts`, `*.adapter.ts`, plus `boot.ts`, `app.ts`, `server.ts` |
-| tests | `*.test.ts` next to the file under test |
+| `packages/client` and `apps/api` | `*.port.ts` (an interface a service depends on) |
+| any app | `*.adapter.ts` (a platform or vendor implementation of a port) |
+| entry points | `boot.ts` in every app; `app.ts` and `server.ts` in `apps/api` |
 
-Code that would need another suffix goes where its knowledge lives: mapping goes with the module that knows the format, construction and changes go in the owning service, animation sequences go in the view, display text goes in the controller.
+Tests sit next to the file they cover as `*.test.ts`.
+
+Code that seems to need another suffix goes where its knowledge lives:
+
+| Instead of | Put it in |
+|---|---|
+| `runtime`, `engine` | a `*.service.ts` (with `start()` if it listens to events), or a `*.policy.ts` if it's pure |
+| `mapper`, `codec` | the module that knows the format: the adapter, repository or controller that uses it; a domain format goes in its `*.model.ts` |
+| `factory` | the service that owns the object, or a `*.policy.ts` if it's a pure decision |
+| `handler` | a method on the owning service |
+| `config` | `loadConfig` in `boot.ts` |
+| `store` | private state inside a service |
+| `types`, `entity`, `value` | a `*.model.ts` |
+| `sequence` (animation) | the view |
+| `labels`, `content` (display text) | the controller, or a shared `*.view-model.ts` |
 
 ## Layout
 
@@ -51,7 +70,7 @@ packages/client/   features/<feature>/: controllers, client services, shared vie
 - **pnpm workspaces**, pinned with `packageManager`. **Node** is the only runtime, for the server, tests and scripts.
 - Dependencies point one way: `apps → packages/client → packages/domain`, and `apps/api → packages/domain`. `packages/client` imports only `type AppType` from the API, never its code. [§9.4]
 - Folders are grouped by feature inside each app or package, never by role. [ch. 9]
-- `@compean/core` entry points: root (`Observable`, `Controller`, `$S`, `register`, `UserError`, `ToastService`, `Form`, `ErrorReporter`, `changed`), `/react` (`useController`, `<Toaster />`), `/server` (the `app.onError` handler, `loadConfig`), `/testing` (`useTestDatabase`, `resetServices`, recording fakes).
+- `@compean/core`'s entry points and their exports are listed in its README.
 
 ## Domain
 
@@ -62,28 +81,28 @@ packages/client/   features/<feature>/: controllers, client services, shared vie
 
 ## Controllers
 
-- A controller extends `Controller<TState>`. It exposes `state`, `initialize()` and its actions; the base class provides `subscribe`, `dispose`, `notify()`, `track(cleanup)` and `run(task)`.
-- `state` holds display-ready values only. Building them is private mapping inside the controller. [§7.4, §9.1]
-- Every action that does async work runs through `run()`. `run()` sets the loading and error status, shows a `UserError`'s message as a toast once the screen has loaded, shows a generic message for anything else, and reports bugs. Controllers write no `try/catch`. [§10.7]
+- A controller extends `Controller<TState>`. It exposes `state`, `initialize()` and its actions; the base class provides `start()`, `subscribe`, `dispose`, `notify()`, `track(cleanup)`, `load(task)` and `run(task)`.
+- `state` holds display-ready values only. Building them is private mapping inside the controller. Screens and components import only view-model types, never the functions that build them. Decisions call domain rules, not view-model fields. [§7.4, §9.1]
+- Loading the screen's data goes through `load()`: before the screen is first ready, the status settles when every load started so far has finished ('ready', or 'error' with a retry); once ready it's a refresh whose failure shows as a toast. A screen that loads nothing never calls it and starts ready. Every action goes through `run()`, which never changes the status and shows failures as toasts. Both show a `UserError`'s message, show a generic message for anything else, and report bugs. [§10.7, §18]
 - An action must add something: `run()`, a state change, or combining services. One that only forwards a call is a pass-through. [§7.1]
 - Every decision that reads app state is made in the controller, in a method called directly where the data arrives (for example at the end of `load()`). Subscribe to a service only when the change comes from outside. [§18.2]
 - Controllers import no React, React Native or router package. They hold no animation values, springs, animation timers or haptics; they expose meaningful state (`phase`, `isRevealed`) and the view animates it. Timing that is behaviour (auto-advance after 3 s) stays in the controller and never copies an animation's duration. When the flow waits for an animation, the view calls a method named by what the user saw (`planRevealed()`). [§5.2, §9.4]
 - Services come from `$S`. The constructor takes only what the screen owns, in this order: route params, then navigation, each only when needed. [§7.5]
-- Success messages: `$S(ToastService).show('Moved to Technical')` after the action succeeds. Only actions announce success; loading data never does.
-- Forms: the controller holds a `Form` built from a domain schema, exposed as `public readonly`, and subscribes to it in `initialize()`. Submit with `this.run(() => this.form.submit(async (input) => { ... }))`; the action runs only when the input is valid. Clear the form only after the action succeeds. Field errors show on blur or submit. [§19.6, §10.1]
+- Success messages: `$S(ToastService).show('Moved to Technical')` after the action succeeds; `show(message, tone)` takes `'error'` for the rare message that isn't from `run()`. Only actions announce success; loading data never does.
+- Forms: the controller holds a `Form` built from a domain schema, exposed as `public readonly`, and subscribes to it in `initialize()`. The screen binds inputs to it directly, so the controller writes no setter per field. Submit with `this.run(() => this.form.submit(async (input) => { ... }))`: invalid input shows every field's error and skips the action. Clear the form only after the action succeeds. Field errors show on blur or submit. A rule only the server can check (an email already taken) arrives as a toast through `run()`. [§19.6, §10.1]
 
 ### Navigation
 
 - When the destination is knowledge the screen owns (a row's detail, a menu item, back), the screen uses `<Link>` or its router directly.
 - When it comes from a rule, a result or a flow order, the controller decides. It declares a small navigation interface named by destination (`toResumeVersion(id)`, `back()`), and the screen implements it with its platform's router and passes it in. The order of a flow lives in a policy. [§9.4, §6.2]
-- A navigation implementation only navigates.
+- A navigation implementation only navigates. Controllers never see URLs or router APIs.
 - Every navigation interface has a one-line comment: `/** Where this screen can lead after an action. Implemented by each platform's screen. */` [§13.5]
 
 ## Screens
 
 - The screen calls `useController` once and renders `state`. Its sections receive `state` and `controller` as props; avoid passing them through components that don't use them. [§7.5]
 - `useEffect`, `useFocusEffect` and `useState` are for view work only: focus, gesture timing, scroll and animation values, keyboard listeners, view-only toggles.
-- Screens show no toasts or alerts and catch no errors.
+- Screens show no toasts or alerts.
 - Animation, haptics and sound live in the view. `<Toaster />` at the app root owns how toasts look.
 
 ## Web routes
@@ -108,27 +127,27 @@ packages/client/   features/<feature>/: controllers, client services, shared vie
 
 ## Server
 
-- A feature's routes are one chained `Hono` export: path, `zValidator` with a domain schema, one service call, an explicit status code. No route classes, no rules, no database calls. [ch. 7]
+- A feature's routes are one chained `Hono` export: path, `validator` from `@compean/core/server` with a domain schema, one service call, an explicit status code. No route classes, no rules, no database calls. [ch. 7]
 - `app.ts` chains every feature's routes and exports `AppType`. `server.ts` mounts it under `/api` with `@hono/node-server`.
 - Services are classes with the feature's rules. They never read the HTTP context; routes pass `c.var.user.id` and validated input explicitly. [§5.1]
-- A service holds its own queries by default. A `*.repository.ts` exists only when its abstraction differs (joins, mapping rows into shapes, transactions) or two or more services share it. Writes that touch several tables run in one transaction inside the module that knows the tables. [§9.6, ch. 8]
+- A service holds its own queries by default. A `*.repository.ts` exists only when its abstraction differs (joins, mapping rows into shapes, transactions) or two or more services share it. Writes that touch several tables run in one transaction inside the module that knows the tables. There's no interface around the database. [§9.6, ch. 8, §7.2]
 - Services return model types, never rows typed by the database schema, so the schema can't leak into `AppType`. [§5.2]
-- PostgreSQL, raw SQL through `postgres`, checked by SafeQL against the real schema. Migrations are plain `.sql` files run by dbmate, reviewed before merge.
+- PostgreSQL, raw SQL through `postgres`, checked by SafeQL against the real schema, so lint needs a database locally and in CI. Migrations are plain `.sql` files run by dbmate, reviewed before merge. A local-first app with SQLite on the device picks its own tool.
 - Auth: Better Auth mounted in `app.ts`, with a `withSession` middleware that sets `c.var.user`. Its tables arrive as a reviewed migration. Who may do what is decided in services or policies; something the user may not see is reported as not found (`UserError(..., 404)`).
 
 ## Errors
 
 - One class, `UserError(message, status)`, on both sides. Write the message where the cause is known. [§10.7]
 - First try to define the error away: deleting something already gone succeeds, moving to the current stage does nothing. [§10.3]
-- `app.onError` is the only place errors become HTTP: a `UserError` becomes `{ message }` with its status; anything else is reported and answered with a 500 and a generic message. Input validation errors take the same path.
+- `app.onError` is the only place errors become HTTP: a `UserError` becomes `{ message }` with its status; an `HTTPException` below 500 (from Hono middleware) keeps its own response; anything else is reported and answered with a 500 and a generic message. Input validation errors take the `UserError` path through `validator`.
 - Unrecoverable problems at startup (missing config, no database) crash `boot.ts` immediately with a clear message. [§10.8]
 - No `try/catch` in routes, controllers or screens.
 
 ### Reporting bugs
 
 - `ErrorReporter.report(error, { where, userId? })`, registered in each app's `boot.ts`: `ConsoleReporter` locally and in tests, a `SentryReporter` adapter in production. All apps report to one Sentry project. [§7.2]
-- Only `run()` and `app.onError` call it, and never for a `UserError`.
-- `report()` never throws; if the destination fails it falls back to the console. [§10.6]
+- Only `load()`, `run()` and `app.onError` call it, and never for a `UserError`.
+- A reporter may throw; core's callers then fall back to the console, so reporting never breaks error handling. [§10.6]
 
 ## Tests
 
@@ -139,7 +158,7 @@ packages/client/   features/<feature>/: controllers, client services, shared vie
 - Routes: a few `app.request()` tests per feature, which also exercise `app.onError`.
 - Screens: a few Playwright flows for the key journeys.
 - Every test starts with `resetServices()`; tests in one file don't run concurrently. [§7.5]
-- Design the abstraction first, then its tests. A bug fix starts with a test that fails because of the bug. [§19.4]
+- Test-first and bug-fix order follow `code-rules/process.md`.
 
 ## Enforced by lint
 
