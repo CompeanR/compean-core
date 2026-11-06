@@ -25,10 +25,10 @@ interface Validation<V> {
  */
 export class Form<S extends z.ZodObject> extends Observable {
     private values: z.input<S>;
-    /** Fields whose errors are visible: visited by the user, or every field after a failed submit. */
+    /** Fields allowed to show their error: visited by the user, or every field after a failed submit. */
     private readonly touched = new Set<keyof z.input<S>>();
-    /** True after a failed submit; the form-level error shows only then. */
-    private submitted = false;
+    /** Set by a failed submit: form-level errors belong to no field, so no touch can reveal them. */
+    private showFormError = false;
 
     public constructor(
         private readonly schema: S,
@@ -54,7 +54,7 @@ export class Form<S extends z.ZodObject> extends Observable {
     public reset(): void {
         this.values = { ...this.initial };
         this.touched.clear();
-        this.submitted = false;
+        this.showFormError = false;
         this.notify();
     }
 
@@ -71,7 +71,7 @@ export class Form<S extends z.ZodObject> extends Observable {
         return {
             values: { ...this.values },
             errors,
-            formError: this.submitted ? validation.formError : null,
+            formError: this.showFormError ? validation.formError : null,
             canSubmit: validation.valid,
         };
     }
@@ -85,7 +85,7 @@ export class Form<S extends z.ZodObject> extends Observable {
     public async submit(action: (input: z.output<S>) => Promise<void>): Promise<void> {
         const result = this.schema.safeParse(this.values);
         if (!result.success) {
-            this.submitted = true;
+            this.showFormError = true;
             for (const field of Object.keys(this.schema.shape) as Array<keyof z.input<S>>) {
                 this.touched.add(field);
             }

@@ -1,6 +1,6 @@
 # Framework rules
 
-Conventions for every app built on `@compean/core`. They apply on top of the `code-rules` skill, which holds the design principles (from *A Philosophy of Software Design*) these rules are derived from; read that first. Each rule here is written once; the section number in brackets points to the principle behind it.
+Conventions for every app built on `@compean/core`. They apply on top of the `code-rules` skill, which holds the design principles (from _A Philosophy of Software Design_) these rules are derived from; read that first. Each rule here is written once; the section number in brackets points to the principle behind it.
 
 A rule a tool can check is enforced by `@compean/core/eslint` and listed in [Enforced by lint](#enforced-by-lint). A new kind of file, a new dependency direction or an exception to a rule needs a design decision before code, not a local workaround.
 
@@ -10,52 +10,52 @@ Comments follow `code-rules/comments.md`. Decisions that span modules go in the 
 
 ## Glossary
 
-| Term | Meaning |
-|---|---|
-| **Domain** | The pure TypeScript that both client and server agree on: models, schemas and policies in `packages/domain`. No I/O, no runtime imports, no display text. |
-| **Model** | A domain concept: its readonly Zod schema, its type, and the pure functions that define its terms (`isKept`, `isPathComplete`). File: `*.model.ts`. |
-| **Schema** | A validation shape that isn't a domain concept, such as a request body or a form's input. File: `*.schema.ts`. |
-| **Policy** | A pure behaviour decision: "what should the app do?" (`shouldPromptForReview`, `recommendNextPaths`). Never creates, changes or stores anything. File: `*.policy.ts`. |
-| **Service** | A class that performs operations and may hold shared state, reached through `$S`. Exists on the client and on the server. File: `*.service.ts`. |
-| **Controller** | Client-only. Owns one screen's logic and state; its `state` is the screen's view model. Runs on web and mobile unchanged. File: `*.controller.ts`. |
-| **View model** | The display-ready values a screen renders. Normally a controller's `state`; a `*.view-model.ts` file exists only when two or more controllers build the same display shape. |
-| **Screen** | The component a route renders. Calls `useController` once and renders its state. |
-| **Routes** | Server-only. A chained Hono definition of a feature's HTTP endpoints. File: `*.routes.ts`. The word "controller" is never used for this. |
-| **Repository** | Server-only. Holds queries only when they are deep (joins, mapping, transactions) or shared by two or more services. File: `*.repository.ts`. |
-| **Port / adapter** | The boundary with something we don't control (device storage, a third-party SDK) and its implementation. Files: `*.port.ts`, `*.adapter.ts`. |
-| **`$S`** | The service registry. `register(Class, instance)` in `boot.ts`; `$S(Class)` everywhere else it's allowed. |
-| **`boot.ts`** | The composition root of each app: the one place that builds services and wires their dependencies. |
-| **`UserError`** | An error the user can fix or should be told about. Its message is shown verbatim. Everything else is a bug. |
-| **Resource** | A name for a kind of server data (`'applications'`), used to mark cached data stale. Resources are a typed union in `packages/domain`, so a typo is a compile error. |
+| Term               | Meaning                                                                                                                                                                     |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Domain**         | The pure TypeScript that both client and server agree on: models, schemas and policies in `packages/domain`. No I/O, no runtime imports, no display text.                   |
+| **Model**          | A domain concept: its readonly Zod schema, its type, and the pure functions that define its terms (`isKept`, `isPathComplete`). File: `*.model.ts`.                         |
+| **Schema**         | A validation shape that isn't a domain concept, such as a request body or a form's input. File: `*.schema.ts`.                                                              |
+| **Policy**         | A pure behaviour decision: "what should the app do?" (`shouldPromptForReview`, `recommendNextPaths`). Never creates, changes or stores anything. File: `*.policy.ts`.       |
+| **Service**        | A class that performs operations and may hold shared state, reached through `$S`. Exists on the client and on the server. File: `*.service.ts`.                             |
+| **Controller**     | Client-only. Owns one screen's logic and state; its `state` is the screen's view model. Runs on web and mobile unchanged. File: `*.controller.ts`.                          |
+| **View model**     | The display-ready values a screen renders. Normally a controller's `state`; a `*.view-model.ts` file exists only when two or more controllers build the same display shape. |
+| **Screen**         | The component a route renders. Calls `useController` once and renders its state.                                                                                            |
+| **Routes**         | Server-only. A chained Hono definition of a feature's HTTP endpoints. File: `*.routes.ts`. The word "controller" is never used for this.                                    |
+| **Repository**     | Server-only. Holds queries only when they are deep (joins, mapping, transactions) or shared by two or more services. File: `*.repository.ts`.                               |
+| **Port / adapter** | The boundary with something we don't control (device storage, a third-party SDK) and its implementation. Files: `*.port.ts`, `*.adapter.ts`.                                |
+| **`$S`**           | The service registry. `register(Class, instance)` in `boot.ts`; `$S(Class)` everywhere else it's allowed.                                                                   |
+| **`boot.ts`**      | The composition root of each app: the one place that builds services and wires their dependencies.                                                                          |
+| **`UserError`**    | An error the user can fix or should be told about. Its message is shown verbatim. Everything else is a bug.                                                                 |
+| **Resource**       | A name for a kind of server data (`'applications'`), used to mark cached data stale. Resources are a typed union in `packages/domain`, so a typo is a compile error.        |
 
 ## File roles
 
 These eleven file roles are the only ones. The folder is the feature; the suffix is the role.
 
-| Where | Role |
-|---|---|
-| `packages/domain` | `*.model.ts`, `*.schema.ts`, `*.policy.ts` |
-| `packages/client` | `*.controller.ts`, `*.service.ts`, `*.view-model.ts` |
-| `apps/api` | `*.routes.ts`, `*.service.ts`, `*.repository.ts` |
-| `packages/client` and `apps/api` | `*.port.ts` (an interface a service depends on) |
-| any app | `*.adapter.ts` (a platform or vendor implementation of a port) |
-| entry points | `boot.ts` in every app; `app.ts` and `server.ts` in `apps/api` |
+| Where                            | Role                                                           |
+| -------------------------------- | -------------------------------------------------------------- |
+| `packages/domain`                | `*.model.ts`, `*.schema.ts`, `*.policy.ts`                     |
+| `packages/client`                | `*.controller.ts`, `*.service.ts`, `*.view-model.ts`           |
+| `apps/api`                       | `*.routes.ts`, `*.service.ts`, `*.repository.ts`               |
+| `packages/client` and `apps/api` | `*.port.ts` (an interface a service depends on)                |
+| any app                          | `*.adapter.ts` (a platform or vendor implementation of a port) |
+| entry points                     | `boot.ts` in every app; `app.ts` and `server.ts` in `apps/api` |
 
 Tests sit next to the file they cover as `*.test.ts`.
 
 Code that seems to need another suffix goes where its knowledge lives:
 
-| Instead of | Put it in |
-|---|---|
-| `runtime`, `engine` | a `*.service.ts` (with `start()` if it listens to events), or a `*.policy.ts` if it's pure |
-| `mapper`, `codec` | the module that knows the format: the adapter, repository or controller that uses it; a domain format goes in its `*.model.ts` |
-| `factory` | the service that owns the object, or a `*.policy.ts` if it's a pure decision |
-| `handler` | a method on the owning service |
-| `config` | `loadConfig` in `boot.ts` |
-| `store` | private state inside a service |
-| `types`, `entity`, `value` | a `*.model.ts` |
-| `sequence` (animation) | the view |
-| `labels`, `content` (display text) | the controller, or a shared `*.view-model.ts` |
+| Instead of                         | Put it in                                                                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `runtime`, `engine`                | a `*.service.ts` (with `start()` if it listens to events), or a `*.policy.ts` if it's pure                                     |
+| `mapper`, `codec`                  | the module that knows the format: the adapter, repository or controller that uses it; a domain format goes in its `*.model.ts` |
+| `factory`                          | the service that owns the object, or a `*.policy.ts` if it's a pure decision                                                   |
+| `handler`                          | a method on the owning service                                                                                                 |
+| `config`                           | `loadConfig` in `boot.ts`                                                                                                      |
+| `store`                            | private state inside a service                                                                                                 |
+| `types`, `entity`, `value`         | a `*.model.ts`                                                                                                                 |
+| `sequence` (animation)             | the view                                                                                                                       |
+| `labels`, `content` (display text) | the controller, or a shared `*.view-model.ts`                                                                                  |
 
 ## Layout
 
@@ -67,6 +67,7 @@ packages/domain/   models, schemas, policies
 packages/client/   features/<feature>/: controllers, client services, shared view models
 ```
 
+- Formatting comes from `@compean/core/prettier` (`"prettier": "@compean/core/prettier"` in the root `package.json`), with an `.editorconfig` for editors that don't read Prettier. No project keeps its own copy.
 - **pnpm workspaces**, pinned with `packageManager`. **Node** is the only runtime, for the server, tests and scripts.
 - Dependencies point one way: `apps → packages/client → packages/domain`, and `apps/api → packages/domain`. `packages/client` imports only `type AppType` from the API, never its code. [§9.4]
 - Folders are grouped by feature inside each app or package, never by role. [ch. 9]

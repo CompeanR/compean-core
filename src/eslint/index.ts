@@ -3,15 +3,26 @@ import type { ESLint, Linter, Rule } from 'eslint';
 type ImportNode = { source?: { value?: unknown } | null };
 
 /** Packages that only run on one platform: React, React Native, Expo and the routers. */
-const PLATFORM_IMPORT = /^(react|react-dom|react-native|react-router|expo)(\/|$)|^react-native-|^react-router-|^@tanstack\/react-|^expo-|^@expo\/|^@react-navigation\//;
+const PLATFORM_IMPORT =
+    /^(react|react-dom|react-native|react-router|expo)(\/|$)|^react-native-|^react-router-|^@tanstack\/react-|^expo-|^@expo\/|^@react-navigation\//;
 /** What packages/domain may import: its own files and zod. */
 const DOMAIN_ALLOWED = /^(\.{1,2}\/|zod(\/|$))/;
 /** TanStack Router calls whose options object defines a route. */
-const ROUTE_FACTORIES = new Set(['createFileRoute', 'createRoute', 'createRootRoute', 'createRootRouteWithContext', 'createLazyFileRoute']);
+const ROUTE_FACTORIES = new Set([
+    'createFileRoute',
+    'createRoute',
+    'createRootRoute',
+    'createRootRouteWithContext',
+    'createLazyFileRoute',
+]);
 
 /** Which files may import a library that must stay hidden behind one kind of module. */
 const LIBRARY_OWNERS: ReadonlyArray<{ library: RegExp; owner: RegExp; ownerName: string }> = [
-    { library: /^@tanstack\/(query-core|react-query)(\/|$)/, owner: /\.service\.tsx?$/, ownerName: 'a client service (*.service.ts)' },
+    {
+        library: /^@tanstack\/(query-core|react-query)(\/|$)/,
+        owner: /\.service\.tsx?$/,
+        ownerName: 'a client service (*.service.ts)',
+    },
     { library: /^better-auth(\/|$)/, owner: /(^|[\\/])auth\.service\.tsx?$/, ownerName: 'the auth service (auth.service.ts)' },
 ];
 
@@ -64,7 +75,10 @@ const platformFree: Rule.RuleModule = {
     meta: {
         type: 'problem',
         docs: { description: 'Shared client code and controllers run on web and mobile, so they import no platform or router.' },
-        messages: { platform: "'{{source}}' is platform code. Controllers and packages/client stay platform-free; use it in a screen or an adapter." },
+        messages: {
+            platform:
+                "'{{source}}' is platform code. Controllers and packages/client stay platform-free; use it in a screen or an adapter.",
+        },
         schema: [],
     },
     create: (context) =>
@@ -94,7 +108,7 @@ const noRouteLoaders: Rule.RuleModule = {
     meta: {
         type: 'problem',
         docs: { description: 'Controllers load data; route files only pick a screen.' },
-        messages: { loader: 'Routes never use loaders. Load data in the screen\'s controller through a service.' },
+        messages: { loader: "Routes never use loaders. Load data in the screen's controller through a service." },
         schema: [],
     },
     create: (context) => ({

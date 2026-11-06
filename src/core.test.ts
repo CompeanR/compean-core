@@ -257,7 +257,11 @@ describe('Form', () => {
     it('lets the action failure propagate so run() can handle it, keeping the values', async () => {
         const form = new Form(NoteSchema, { body: 'hello' });
 
-        await expect(form.submit(async () => { throw new Error('offline'); })).rejects.toThrow('offline');
+        await expect(
+            form.submit(async () => {
+                throw new Error('offline');
+            }),
+        ).rejects.toThrow('offline');
         expect(form.view().values.body).toBe('hello');
     });
 
@@ -396,10 +400,17 @@ describe('edge cases: form rules, loading, reporting, readJson, navigation fake'
 
     it('lets only load() decide the status; an action meanwhile uses the toast path', async () => {
         let finishLoad!: (name: string) => void;
-        const controller = new ProfileController(() => new Promise((resolve) => { finishLoad = resolve; }));
+        const controller = new ProfileController(
+            () =>
+                new Promise((resolve) => {
+                    finishLoad = resolve;
+                }),
+        );
         const load = controller.reload();
 
-        await controller.rename(async () => { throw new UserError('Already saved', 409); });
+        await controller.rename(async () => {
+            throw new UserError('Already saved', 409);
+        });
         expect(controller.state.status).toBe('loading');
         expect(toasts.latest()?.message).toBe('Already saved');
 
@@ -412,7 +423,9 @@ describe('edge cases: form rules, loading, reporting, readJson, navigation fake'
     });
 
     it('keeps a UserError message as the load error, without reporting it', async () => {
-        const controller = new ProfileController(async () => { throw new UserError('Application not found', 404); });
+        const controller = new ProfileController(async () => {
+            throw new UserError('Application not found', 404);
+        });
 
         await controller.reload();
 
@@ -422,12 +435,20 @@ describe('edge cases: form rules, loading, reporting, readJson, navigation fake'
     });
 
     it('still shows the toast when the reporter itself fails', async () => {
-        register(ErrorReporter, { report: () => { throw new Error('sentry down'); } });
+        register(ErrorReporter, {
+            report: () => {
+                throw new Error('sentry down');
+            },
+        });
         const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
         const controller = new ProfileController(async () => 'Ada');
         await controller.reload();
 
-        await expect(controller.rename(async () => { throw new Error('bug'); })).resolves.toBeUndefined();
+        await expect(
+            controller.rename(async () => {
+                throw new Error('bug');
+            }),
+        ).resolves.toBeUndefined();
 
         expect(toasts.latest()?.message).toBe('Something went wrong. Try again.');
         expect(errors).toHaveBeenCalled();
@@ -489,7 +510,9 @@ describe('Controller.start, load and run', () => {
         const controller = new NewApplicationController();
         controller.start();
 
-        await controller.save(async () => { throw new UserError('Name taken', 409); });
+        await controller.save(async () => {
+            throw new UserError('Name taken', 409);
+        });
 
         expect(controller.state.status).toBe('ready');
         expect(toasts.latest()).toMatchObject({ message: 'Name taken', tone: 'error' });
@@ -504,7 +527,9 @@ describe('Controller.start, load and run', () => {
     });
 
     it('never lets a successful action turn a failed load into ready', async () => {
-        const controller = new ProfileController(async () => { throw new Error('offline'); });
+        const controller = new ProfileController(async () => {
+            throw new Error('offline');
+        });
         await controller.reload();
 
         await controller.rename(async () => {});
@@ -558,7 +583,10 @@ describe('Controller with several first loads', () => {
     function deferred() {
         let resolve!: (value: string) => void;
         let reject!: (error: unknown) => void;
-        const promise = new Promise<string>((res, rej) => { resolve = res; reject = rej; });
+        const promise = new Promise<string>((res, rej) => {
+            resolve = res;
+            reject = rej;
+        });
         return { promise, resolve, reject };
     }
 

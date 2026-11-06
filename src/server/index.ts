@@ -22,7 +22,10 @@ export function handleErrors(): ErrorHandler {
             if (error.res) {
                 return error.getResponse();
             }
-            return c.json({ message: error.message || 'The request could not be processed' }, error.status as ContentfulStatusCode);
+            return c.json(
+                { message: error.message || 'The request could not be processed' },
+                error.status as ContentfulStatusCode,
+            );
         }
         reportSafely(error, { where: `${c.req.method} ${c.req.path}` });
         return c.json({ message: GENERIC_MESSAGE }, 500);
@@ -33,10 +36,7 @@ export function handleErrors(): ErrorHandler {
  * zValidator that reports invalid input as a UserError, so it reaches the client through the same
  * handler and shape as every other user-facing error.
  */
-export function validator<Target extends keyof ValidationTargets, Schema extends z.ZodType>(
-    target: Target,
-    schema: Schema,
-) {
+export function validator<Target extends keyof ValidationTargets, Schema extends z.ZodType>(target: Target, schema: Schema) {
     return zValidator(target, schema, (result) => {
         if (!result.success) {
             throw new UserError(describeIssues(result.error.issues), 400);
