@@ -2,6 +2,7 @@
     "name": "@compean/core",
     "version": "0.1.0",
     "description": "Shared core for Compean apps: controllers, services, errors, forms and the framework rules.",
+    "license": "MIT",
     "type": "module",
     "packageManager": "pnpm@10.34.5",
     "engines": {
@@ -40,7 +41,8 @@
     "scripts": {
         "build": "tsc -p tsconfig.build.json",
         "typecheck": "tsc -p tsconfig.json --noEmit",
-        "test": "vitest run"
+        "test": "vitest run",
+        "prepublishOnly": "pnpm test && pnpm typecheck && pnpm build"
     },
     "peerDependencies": {
         "@hono/zod-validator": "^0.9.0",
