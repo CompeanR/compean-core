@@ -107,7 +107,9 @@ describe('handleErrors with Hono exceptions', () => {
     it('keeps a custom response from an HTTPException, headers included', async () => {
         const { HTTPException } = await import('hono/http-exception');
         const app = new Hono().get('/private', () => {
-            throw new HTTPException(401, { res: new Response('Unauthorized', { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } }) });
+            throw new HTTPException(401, {
+                res: new Response('Unauthorized', { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } }),
+            });
         });
         app.onError(handleErrors());
 
@@ -118,7 +120,11 @@ describe('handleErrors with Hono exceptions', () => {
     });
 
     it('still answers 500 when the reporter itself fails', async () => {
-        register(ErrorReporter, { report: () => { throw new Error('sentry down'); } });
+        register(ErrorReporter, {
+            report: () => {
+                throw new Error('sentry down');
+            },
+        });
         const errors = (await import('vitest')).vi.spyOn(console, 'error').mockImplementation(() => {});
 
         const res = await buildApp().request('/crash');

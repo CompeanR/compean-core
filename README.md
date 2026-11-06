@@ -10,19 +10,20 @@ The shared core of every Compean app: controllers, services, errors, forms, feed
 pnpm add @compean/core zod
 ```
 
-Optional peers, by entry point: `react` for `/react`; `hono` and `@hono/zod-validator` for `/server`; `@tanstack/query-core` for `changed()`; `eslint` for `/eslint`. Requires Node 22.12 or later.
+Optional peers, by entry point: `react` for `/react`; `prettier` for `/prettier`; `hono` and `@hono/zod-validator` for `/server`; `@tanstack/query-core` for `changed()`; `eslint` for `/eslint`. Requires Node 22.12 or later.
 
 Bug reports from `load()` and `run()` name the controller by its class name, so production builds must keep class names: in Vite, set `esbuild: { keepNames: true }`.
 
 ## Entry points
 
-| Import | Exports | Used in |
-|---|---|---|
-| `@compean/core` | `Observable`, `Controller`, `$S`, `register`, `UserError`, `ToastService`, `Form`, `ErrorReporter`, `ConsoleReporter`, `readJson`, `changed` | everything |
-| `@compean/core/react` | `useController`, `Toaster` | web and mobile screens |
-| `@compean/core/server` | `handleErrors`, `validator`, `loadConfig` | the API |
-| `@compean/core/testing` | `resetServices`, `RecordingReporter`, `recordingNavigation` | tests |
-| `@compean/core/eslint` | `compeanRules` | each app's `eslint.config.js` |
+| Import                   | Exports                                                                                                                                      | Used in                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `@compean/core`          | `Observable`, `Controller`, `$S`, `register`, `UserError`, `ToastService`, `Form`, `ErrorReporter`, `ConsoleReporter`, `readJson`, `changed` | everything                                                        |
+| `@compean/core/react`    | `useController`, `Toaster`                                                                                                                   | web and mobile screens                                            |
+| `@compean/core/server`   | `handleErrors`, `validator`, `loadConfig`                                                                                                    | the API                                                           |
+| `@compean/core/testing`  | `resetServices`, `RecordingReporter`, `recordingNavigation`                                                                                  | tests                                                             |
+| `@compean/core/eslint`   | `compeanRules`                                                                                                                               | each app's `eslint.config.js`                                     |
+| `@compean/core/prettier` | the shared Prettier config (4 spaces, width 130, single quotes)                                                                              | each app's `package.json`: `"prettier": "@compean/core/prettier"` |
 
 ## A screen in four pieces
 
@@ -44,11 +45,13 @@ export class NotesController extends Controller<NotesState> {
     }
 
     public addNote(): Promise<void> {
-        return this.run(() => this.form.submit(async (input) => {
-            await $S(NotesService).add(input);
-            this.form.reset();
-            $S(ToastService).show('Note added');
-        }));
+        return this.run(() =>
+            this.form.submit(async (input) => {
+                await $S(NotesService).add(input);
+                this.form.reset();
+                $S(ToastService).show('Note added');
+            }),
+        );
     }
 }
 ```

@@ -56,7 +56,7 @@ describe('useController', () => {
     afterEach(cleanup);
 
     it('creates the controller once, initializes it, and re-renders on notify', () => {
-        render(<CounterScreen id="a" />);
+        render(<CounterScreen id='a' />);
 
         act(() => latest!.increment());
 
@@ -66,17 +66,17 @@ describe('useController', () => {
     });
 
     it('replaces the controller when the key changes and disposes the old one', () => {
-        const { rerender } = render(<CounterScreen id="a" />);
+        const { rerender } = render(<CounterScreen id='a' />);
         const first = latest!;
 
-        rerender(<CounterScreen id="b" />);
+        rerender(<CounterScreen id='b' />);
 
         expect(screen.getByText('b: 0')).toBeTruthy();
         expect(first.disposed).toBe(1);
     });
 
     it('disposes the controller on unmount', () => {
-        const { unmount } = render(<CounterScreen id="a" />);
+        const { unmount } = render(<CounterScreen id='a' />);
         const controller = latest!;
 
         unmount();
@@ -104,7 +104,11 @@ describe('useController, review fixes', () => {
             return null;
         }
 
-        render(<StrictMode><Screen /></StrictMode>);
+        render(
+            <StrictMode>
+                <Screen />
+            </StrictMode>,
+        );
 
         for (const controller of controllers) {
             expect(controller.initialized - controller.disposed).toBeLessThanOrEqual(1);
@@ -116,7 +120,7 @@ describe('useController, review fixes', () => {
         expect(latest!.disposed).toBe(0);
     });
 
-    it('never renders the new controller with the old one\'s state', () => {
+    it("never renders the new controller with the old one's state", () => {
         const rendered: string[] = [];
         function Screen({ id }: { id: string }) {
             const { state, controller } = useController(() => new CounterController(id), id);
@@ -124,11 +128,11 @@ describe('useController, review fixes', () => {
             rendered.push(`${controller.id}:${state.count}`);
             return null;
         }
-        const { rerender } = render(<Screen id="a" />);
+        const { rerender } = render(<Screen id='a' />);
         act(() => latest!.increment());
         act(() => latest!.increment());
 
-        rerender(<Screen id="b" />);
+        rerender(<Screen id='b' />);
 
         expect(rendered).not.toContain('b:2');
     });
@@ -145,8 +149,8 @@ describe('Toaster', () => {
         vi.useRealTimers();
     });
 
-    it('renders the latest toast with the app\'s own look, then dismisses it after its duration', () => {
-        render(<Toaster duration={3000}>{(toast) => <div role="status">{`${toast.tone}: ${toast.message}`}</div>}</Toaster>);
+    it("renders the latest toast with the app's own look, then dismisses it after its duration", () => {
+        render(<Toaster duration={3000}>{(toast) => <div role='status'>{`${toast.tone}: ${toast.message}`}</div>}</Toaster>);
 
         act(() => $S(ToastService).show('Note added'));
 

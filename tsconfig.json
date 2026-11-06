@@ -3,10 +3,7 @@
         "target": "es2023",
         "module": "nodenext",
         "moduleResolution": "nodenext",
-        "lib": [
-            "es2023",
-            "dom"
-        ],
+        "lib": ["es2023", "dom"],
         "jsx": "react-jsx",
         "strict": true,
         "noUncheckedIndexedAccess": true,
@@ -16,11 +13,7 @@
         "skipLibCheck": true,
         "rootDir": "src",
         "outDir": "dist",
-        "types": [
-            "node"
-        ]
+        "types": ["node"]
     },
-    "include": [
-        "src"
-    ]
+    "include": ["src"]
 }
