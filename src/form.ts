@@ -25,7 +25,9 @@ interface Validation<V> {
  */
 export class Form<S extends z.ZodObject> extends Observable {
     private values: z.input<S>;
+    /** Fields whose errors are visible: visited by the user, or every field after a failed submit. */
     private readonly touched = new Set<keyof z.input<S>>();
+    /** True after a failed submit; the form-level error shows only then. */
     private submitted = false;
 
     public constructor(
@@ -36,6 +38,7 @@ export class Form<S extends z.ZodObject> extends Observable {
         this.values = { ...initial };
     }
 
+    /** If the field was touched, its visible error is re-checked against the new value. */
     public set<K extends keyof z.input<S>>(field: K, value: z.input<S>[K]): void {
         this.values = { ...this.values, [field]: value };
         this.notify();
@@ -55,6 +58,7 @@ export class Form<S extends z.ZodObject> extends Observable {
         this.notify();
     }
 
+    /** A snapshot for the screen: a copy of the values, the visible errors and whether it can submit. */
     public view(): FormView<z.input<S>> {
         const validation = this.validate();
         const errors: FieldErrors<z.input<S>> = {};
@@ -74,7 +78,9 @@ export class Form<S extends z.ZodObject> extends Observable {
 
     /**
      * Runs `action` with the parsed input when it's valid; otherwise shows every error and skips
-     * it. A failure inside `action` propagates, so `run()` can report it and the values stay.
+     * it. The values stay as they are either way; clear them with `reset()` inside `action`.
+     *
+     * @throws whatever `action` throws, so the surrounding `run()` reports it.
      */
     public async submit(action: (input: z.output<S>) => Promise<void>): Promise<void> {
         const result = this.schema.safeParse(this.values);

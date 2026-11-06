@@ -2,8 +2,11 @@ import type { ESLint, Linter, Rule } from 'eslint';
 
 type ImportNode = { source?: { value?: unknown } | null };
 
+/** Packages that only run on one platform: React, React Native, Expo and the routers. */
 const PLATFORM_IMPORT = /^(react|react-dom|react-native|react-router|expo)(\/|$)|^react-native-|^react-router-|^@tanstack\/react-|^expo-|^@expo\/|^@react-navigation\//;
+/** What packages/domain may import: its own files and zod. */
 const DOMAIN_ALLOWED = /^(\.{1,2}\/|zod(\/|$))/;
+/** TanStack Router calls whose options object defines a route. */
 const ROUTE_FACTORIES = new Set(['createFileRoute', 'createRoute', 'createRootRoute', 'createRootRouteWithContext', 'createLazyFileRoute']);
 
 /** Which files may import a library that must stay hidden behind one kind of module. */

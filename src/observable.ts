@@ -10,6 +10,7 @@ export abstract class Observable {
         };
     }
 
+    /** Calls every listener synchronously, in subscription order. Listeners added during a call wait for the next one. */
     protected notify(): void {
         for (const listener of [...this.listeners]) {
             listener();

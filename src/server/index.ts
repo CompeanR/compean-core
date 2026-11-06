@@ -43,7 +43,11 @@ export function validator<Target extends keyof ValidationTargets, Schema extends
     });
 }
 
-/** The parsed environment. Throws a message naming every problem, so a bad deploy stops at startup. */
+/**
+ * The environment, parsed and defaulted by `schema`. Call it first in boot.ts.
+ *
+ * @throws Error naming every missing or invalid variable, so a bad deploy stops at startup.
+ */
 export function loadConfig<Schema extends z.ZodObject>(
     schema: Schema,
     env: Record<string, string | undefined> = process.env,

@@ -5,6 +5,10 @@ type Token<T> = abstract new (...args: never[]) => T;
 
 const services = new Map<Token<unknown>, unknown>();
 
+/**
+ * Framework services that work without wiring, so tests and local runs need no boot code. A
+ * default must be what production wants; apps replace the reporter with a vendor one.
+ */
 const defaults = new Map<Token<unknown>, () => unknown>([
     [ToastService, () => new ToastService()],
     [ErrorReporter, () => new ConsoleReporter()],
@@ -15,7 +19,11 @@ export function register<T>(token: Token<T>, instance: T): void {
     services.set(token, instance);
 }
 
-/** The registered service for this class. Throws for a service nobody registered: that is a wiring bug. */
+/**
+ * The service registered for this class, or a framework default (ToastService, ErrorReporter).
+ *
+ * @throws Error when nothing was registered for it: a wiring bug, fixed in boot.ts.
+ */
 export function $S<T>(token: Token<T>): T {
     if (!services.has(token)) {
         const create = defaults.get(token);

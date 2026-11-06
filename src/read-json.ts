@@ -7,11 +7,14 @@ export interface JsonResponse<T> {
     json(): Promise<T>;
 }
 
+/** Statuses a UserError can carry; any other 4xx is shown as a 400. */
 const KNOWN_STATUSES: ReadonlySet<number> = new Set<UserErrorStatus>([400, 401, 403, 404, 409]);
 
 /**
- * The body of a successful response. A 4xx with `{ message }` becomes a UserError, so `run()`
- * shows its words; any other failure becomes a plain Error, which `run()` treats as a bug.
+ * The body of a successful response; undefined for 204 No Content.
+ *
+ * @throws UserError for a 4xx carrying `{ message }`, so `load()` and `run()` show its words.
+ * @throws Error for any other failure, which `load()` and `run()` treat as a bug.
  */
 export async function readJson<T>(request: Promise<JsonResponse<T>> | JsonResponse<T>): Promise<T> {
     const response = await request;

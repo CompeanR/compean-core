@@ -113,7 +113,7 @@ class ProfileController extends Controller<ProfileState> {
     }
 
     public reload(): Promise<void> {
-        return this.run(async () => {
+        return this.load(async () => {
             this.name = await this.loadName();
         });
     }
@@ -127,7 +127,7 @@ class ProfileController extends Controller<ProfileState> {
     }
 }
 
-describe('Controller.run', () => {
+describe('Controller load and run', () => {
     let reporter: RecordingReporter;
     let toasts: ToastService;
 
@@ -394,7 +394,7 @@ describe('review fixes', () => {
         expect(form.view().values.body).toBe('a');
     });
 
-    it('lets only the loading run decide the status; an action meanwhile uses the toast path', async () => {
+    it('lets only load() decide the status; an action meanwhile uses the toast path', async () => {
         let finishLoad!: (name: string) => void;
         const controller = new ProfileController(() => new Promise((resolve) => { finishLoad = resolve; }));
         const load = controller.reload();
@@ -450,5 +450,80 @@ describe('review fixes', () => {
         const navigation = recordingNavigation<{ back(): void }>();
 
         await expect(Promise.resolve(navigation)).resolves.toBe(navigation);
+    });
+});
+
+interface NewApplicationState {
+    status: string;
+}
+
+class NewApplicationController extends Controller<NewApplicationState> {
+    public get state(): NewApplicationState {
+        return { status: this.status };
+    }
+
+    public save(task: () => Promise<void>): Promise<void> {
+        return this.run(task);
+    }
+}
+
+describe('Controller.start, load and run', () => {
+    let toasts: ToastService;
+
+    beforeEach(() => {
+        resetServices();
+        toasts = new ToastService();
+        register(ErrorReporter, new RecordingReporter());
+        register(ToastService, toasts);
+    });
+
+    it('starts a screen that loads nothing as ready', () => {
+        const controller = new NewApplicationController();
+
+        controller.start();
+
+        expect(controller.state.status).toBe('ready');
+    });
+
+    it('shows a failed action as a toast on a screen that loads nothing', async () => {
+        const controller = new NewApplicationController();
+        controller.start();
+
+        await controller.save(async () => { throw new UserError('Name taken', 409); });
+
+        expect(controller.state.status).toBe('ready');
+        expect(toasts.latest()).toMatchObject({ message: 'Name taken', tone: 'error' });
+    });
+
+    it('stays loading after start while initialize() is loading', () => {
+        const controller = new ProfileController(() => new Promise(() => {}));
+
+        controller.start();
+
+        expect(controller.state.status).toBe('loading');
+    });
+
+    it('never lets a successful action turn a failed load into ready', async () => {
+        const controller = new ProfileController(async () => { throw new Error('offline'); });
+        await controller.reload();
+
+        await controller.rename(async () => {});
+
+        expect(controller.state.status).toBe('error');
+    });
+
+    it('keeps the data on screen when a refresh fails, and shows a toast', async () => {
+        let fail = false;
+        const controller = new ProfileController(async () => {
+            if (fail) throw new UserError('Could not refresh', 409);
+            return 'Ada';
+        });
+        await controller.reload();
+
+        fail = true;
+        await controller.reload();
+
+        expect(controller.state).toEqual({ status: 'ready', name: 'Ada' });
+        expect(toasts.latest()?.message).toBe('Could not refresh');
     });
 });

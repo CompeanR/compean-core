@@ -5,12 +5,17 @@ import { ToastService, type Toast } from '../toast.service.js';
 
 type StateOf<C> = C extends Controller<infer S> ? S : never;
 
+/** The controller this hook rendered, the key it was created for, and its latest state. */
 interface Mounted<C> {
     controller: C;
     key: string | undefined;
     state: StateOf<C>;
 }
 
+/**
+ * Controllers this hook has disposed. React StrictMode re-runs effects on the same instance after
+ * disposing it; the hook mounts a fresh controller instead of starting a disposed one.
+ */
 const disposed = new WeakSet<Controller<unknown>>();
 
 function mount<C extends Controller<unknown>>(create: () => C, key: string | undefined): Mounted<C> {
@@ -49,7 +54,7 @@ export function useController<C extends Controller<unknown>>(
             );
         const unsubscribe = controller.subscribe(refresh);
         refresh();
-        controller.initialize();
+        controller.start();
         return () => {
             unsubscribe();
             disposed.add(controller);

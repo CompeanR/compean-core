@@ -10,9 +10,12 @@ export interface Toast {
 
 /** The one channel for short feedback messages. Controllers write the words; `<Toaster />` decides the look. */
 export class ToastService extends Observable {
+    /** The toast on screen; null when none is showing. */
     private current: Toast | null = null;
+    /** Ids increase, so a late `dismiss` of an older toast never hides a newer one. */
     private nextId = 1;
 
+    /** Shows `message`, replacing any toast on screen. Use 'error' only outside `run()`, which shows its own. */
     public show(message: string, tone: ToastTone = 'success'): void {
         this.current = { id: this.nextId++, message, tone };
         this.notify();
