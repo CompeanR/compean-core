@@ -21,6 +21,7 @@ export function recordingNavigation<T extends object>(): Recorded<T> {
             if (property === 'calls') {
                 return calls;
             }
+            // Not a thenable, so awaiting it or returning it from async code doesn't call `then()`.
             if (property === 'then' || typeof property !== 'string') {
                 return Reflect.get(target, property);
             }

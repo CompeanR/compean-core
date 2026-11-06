@@ -29,6 +29,7 @@ Bug reports from `load()` and `run()` name the controller by its class name, so 
 ```ts
 // packages/client: the controller
 export class NotesController extends Controller<NotesState> {
+    private notes: Note[] = [];
     public readonly form = new Form(AddNoteSchema, { body: '' });
 
     public initialize(): void {
@@ -39,7 +40,7 @@ export class NotesController extends Controller<NotesState> {
     }
 
     public get state(): NotesState {
-        return { status: this.status, notes: this.notes, form: this.form.view() };
+        return { status: this.status, loadError: this.loadError, notes: this.notes, form: this.form.view() };
     }
 
     public addNote(): Promise<void> {
@@ -73,7 +74,7 @@ Decisions that span several modules, with the alternatives that were rejected. C
 
 ### Controller status: `load()` and `run()`
 
-A screen is `'loading'`, `'ready'` or `'error'`. Only `load()` decides that status, and only until the screen is first ready; after that a load is a refresh, so its failure shows as a toast and the data stays on screen. `run()` never touches the status. `start()` (called by `useController`) marks a screen that started no load as ready.
+A screen is `'loading'`, `'ready'` or `'error'`. Only `load()` decides that status, and only until the screen is first ready. Several first loads are allowed: the status settles when they have all finished, as `'error'` with the first failure's message if any failed; after that a load is a refresh, so its failure shows as a toast and the data stays on screen. `run()` never touches the status. `start()` (called by `useController`) marks a screen that started no load as ready.
 
 - Rejected: one `run()` for everything, where the first run counted as the load. A form screen with nothing to load stayed `'loading'`, and its first failed submit replaced the whole screen with an error.
 - Rejected: `run(task, { load: true })`. A flag that changes behaviour is a special case every caller has to remember.

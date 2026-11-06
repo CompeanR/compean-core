@@ -352,7 +352,7 @@ describe('recordingNavigation', () => {
     });
 });
 
-describe('review fixes', () => {
+describe('edge cases: form rules, loading, reporting, readJson, navigation fake', () => {
     let reporter: RecordingReporter;
     let toasts: ToastService;
 
@@ -525,5 +525,87 @@ describe('Controller.start, load and run', () => {
 
         expect(controller.state).toEqual({ status: 'ready', name: 'Ada' });
         expect(toasts.latest()?.message).toBe('Could not refresh');
+    });
+});
+
+class DashboardController extends Controller<{ status: string; parts: string[] }> {
+    public parts: string[] = [];
+
+    public constructor(private readonly sources: Array<() => Promise<string>>) {
+        super();
+    }
+
+    public get state() {
+        return { status: this.status, parts: this.parts };
+    }
+
+    public initialize(): void {
+        for (const source of this.sources) {
+            void this.load(async () => {
+                this.parts.push(await source());
+            });
+        }
+    }
+}
+
+describe('Controller with several first loads', () => {
+    beforeEach(() => {
+        resetServices();
+        register(ErrorReporter, new RecordingReporter());
+        register(ToastService, new ToastService());
+    });
+
+    function deferred() {
+        let resolve!: (value: string) => void;
+        let reject!: (error: unknown) => void;
+        const promise = new Promise<string>((res, rej) => { resolve = res; reject = rej; });
+        return { promise, resolve, reject };
+    }
+
+    it('is ready only after every first load succeeds', async () => {
+        const a = deferred();
+        const b = deferred();
+        const controller = new DashboardController([() => a.promise, () => b.promise]);
+        controller.start();
+
+        a.resolve('jobs');
+        await a.promise;
+        await Promise.resolve();
+        expect(controller.state.status).toBe('loading');
+
+        b.resolve('applications');
+        await vi.waitFor(() => expect(controller.state.status).toBe('ready'));
+    });
+
+    it('shows the error when one first load fails, even if another finishes later', async () => {
+        const a = deferred();
+        const b = deferred();
+        const controller = new DashboardController([() => a.promise, () => b.promise]);
+        controller.start();
+
+        a.reject(new UserError('Jobs are unavailable', 404));
+        await a.promise.catch(() => {});
+        b.resolve('applications');
+        await new Promise((done) => setTimeout(done, 0));
+
+        expect(controller.state.status).toBe('error');
+        expect((controller as unknown as { loadError: string }).loadError).toBe('Jobs are unavailable');
+    });
+
+    it('shows the error when the last first load fails after another succeeded', async () => {
+        const a = deferred();
+        const b = deferred();
+        const controller = new DashboardController([() => a.promise, () => b.promise]);
+        controller.start();
+
+        const seen: string[] = [];
+        controller.subscribe(() => seen.push(controller.state.status));
+        a.resolve('jobs');
+        await a.promise;
+        b.reject(new Error('offline'));
+        await new Promise((done) => setTimeout(done, 0));
+
+        expect(controller.state.status).toBe('error');
+        expect(seen).not.toContain('ready');
     });
 });

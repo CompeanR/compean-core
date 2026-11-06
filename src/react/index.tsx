@@ -27,6 +27,8 @@ function mount<C extends Controller<unknown>>(create: () => C, key: string | und
  * Creates a screen's controller, initializes it, re-renders on every `notify()` and disposes it on
  * unmount. A new `key` (such as a route param) replaces the controller. A controller is never
  * initialized again after it was disposed, so React StrictMode gets a fresh one instead.
+ * `create` runs during render and may run more than once, so a constructor must not subscribe
+ * or start work; do that in `initialize()`.
  */
 export function useController<C extends Controller<unknown>>(
     create: () => C,

@@ -6,7 +6,7 @@ A rule a tool can check is enforced by `@compean/core/eslint` and listed in [Enf
 
 ## Comments
 
-Comments follow `code-rules/comments.md`: write one only when it answers a question a reader couldn't answer quickly from the code (what it promises, what a value means at its edges, side effects, how it fails, why it's this way, what else must change with it). Decisions that span modules go in the README's design notes, with a pointer from the code. [ch. 12, ch. 13]
+Comments follow `code-rules/comments.md`. Decisions that span modules go in the README's design notes, with a pointer from the code. [ch. 12, ch. 13]
 
 ## Glossary
 
@@ -83,7 +83,7 @@ packages/client/   features/<feature>/: controllers, client services, shared vie
 
 - A controller extends `Controller<TState>`. It exposes `state`, `initialize()` and its actions; the base class provides `start()`, `subscribe`, `dispose`, `notify()`, `track(cleanup)`, `load(task)` and `run(task)`.
 - `state` holds display-ready values only. Building them is private mapping inside the controller. Screens and components import only view-model types, never the functions that build them. Decisions call domain rules, not view-model fields. [§7.4, §9.1]
-- Loading the screen's data goes through `load()`: before the screen is ready it decides the status ('ready', or 'error' with a retry); once ready it's a refresh whose failure shows as a toast. A screen that loads nothing never calls it and starts ready. Every action goes through `run()`, which never changes the status and shows failures as toasts. Both show a `UserError`'s message, show a generic message for anything else, and report bugs. [§10.7, §18]
+- Loading the screen's data goes through `load()`: before the screen is first ready, the status settles when every load started so far has finished ('ready', or 'error' with a retry); once ready it's a refresh whose failure shows as a toast. A screen that loads nothing never calls it and starts ready. Every action goes through `run()`, which never changes the status and shows failures as toasts. Both show a `UserError`'s message, show a generic message for anything else, and report bugs. [§10.7, §18]
 - An action must add something: `run()`, a state change, or combining services. One that only forwards a call is a pass-through. [§7.1]
 - Every decision that reads app state is made in the controller, in a method called directly where the data arrives (for example at the end of `load()`). Subscribe to a service only when the change comes from outside. [§18.2]
 - Controllers import no React, React Native or router package. They hold no animation values, springs, animation timers or haptics; they expose meaningful state (`phase`, `isRevealed`) and the view animates it. Timing that is behaviour (auto-advance after 3 s) stays in the controller and never copies an animation's duration. When the flow waits for an animation, the view calls a method named by what the user saw (`planRevealed()`). [§5.2, §9.4]
@@ -127,7 +127,7 @@ packages/client/   features/<feature>/: controllers, client services, shared vie
 
 ## Server
 
-- A feature's routes are one chained `Hono` export: path, `zValidator` with a domain schema, one service call, an explicit status code. No route classes, no rules, no database calls. [ch. 7]
+- A feature's routes are one chained `Hono` export: path, `validator` from `@compean/core/server` with a domain schema, one service call, an explicit status code. No route classes, no rules, no database calls. [ch. 7]
 - `app.ts` chains every feature's routes and exports `AppType`. `server.ts` mounts it under `/api` with `@hono/node-server`.
 - Services are classes with the feature's rules. They never read the HTTP context; routes pass `c.var.user.id` and validated input explicitly. [§5.1]
 - A service holds its own queries by default. A `*.repository.ts` exists only when its abstraction differs (joins, mapping rows into shapes, transactions) or two or more services share it. Writes that touch several tables run in one transaction inside the module that knows the tables. There's no interface around the database. [§9.6, ch. 8, §7.2]
@@ -139,7 +139,7 @@ packages/client/   features/<feature>/: controllers, client services, shared vie
 
 - One class, `UserError(message, status)`, on both sides. Write the message where the cause is known. [§10.7]
 - First try to define the error away: deleting something already gone succeeds, moving to the current stage does nothing. [§10.3]
-- `app.onError` is the only place errors become HTTP: a `UserError` becomes `{ message }` with its status; anything else is reported and answered with a 500 and a generic message. Input validation errors take the same path.
+- `app.onError` is the only place errors become HTTP: a `UserError` becomes `{ message }` with its status; an `HTTPException` below 500 (from Hono middleware) keeps its own response; anything else is reported and answered with a 500 and a generic message. Input validation errors take the `UserError` path through `validator`.
 - Unrecoverable problems at startup (missing config, no database) crash `boot.ts` immediately with a clear message. [§10.8]
 - No `try/catch` in routes, controllers or screens.
 
@@ -147,7 +147,7 @@ packages/client/   features/<feature>/: controllers, client services, shared vie
 
 - `ErrorReporter.report(error, { where, userId? })`, registered in each app's `boot.ts`: `ConsoleReporter` locally and in tests, a `SentryReporter` adapter in production. All apps report to one Sentry project. [§7.2]
 - Only `load()`, `run()` and `app.onError` call it, and never for a `UserError`.
-- `report()` never throws; if the destination fails it falls back to the console. [§10.6]
+- A reporter may throw; core's callers then fall back to the console, so reporting never breaks error handling. [§10.6]
 
 ## Tests
 

@@ -15,7 +15,7 @@ export class ToastService extends Observable {
     /** Ids increase, so a late `dismiss` of an older toast never hides a newer one. */
     private nextId = 1;
 
-    /** Shows `message`, replacing any toast on screen. Use 'error' only outside `run()`, which shows its own. */
+    /** Shows `message`, replacing any toast on screen. Use 'error' only outside `load()` and `run()`, which show their own. */
     public show(message: string, tone: ToastTone = 'success'): void {
         this.current = { id: this.nextId++, message, tone };
         this.notify();

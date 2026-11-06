@@ -10,7 +10,8 @@ const GENERIC_MESSAGE = 'Something went wrong';
 
 /**
  * The app's one error handler: `app.onError(handleErrors())`. A UserError becomes `{ message }`
- * with its status; anything else is reported and answered with a generic 500.
+ * with its status; an HTTPException below 500 (from Hono middleware) keeps its own response;
+ * anything else is reported and answered with a generic 500.
  */
 export function handleErrors(): ErrorHandler {
     return (error, c) => {

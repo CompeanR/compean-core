@@ -24,8 +24,10 @@ export abstract class Controller<TState> extends Observable {
     private currentStatus: ControllerStatus = 'loading';
     /** The message for the 'error' status; null in any other status. */
     private currentLoadError: string | null = null;
-    /** Loads started but not finished. While above zero, `start()` leaves the status alone. */
-    private loadsInFlight = 0;
+    /** Loads started before the screen was first ready and not yet finished. The status settles at zero. */
+    private pendingFirstLoads = 0;
+    /** The first failure among the pending first loads; it becomes the load error once they all finish. */
+    private firstLoadFailure: string | null = null;
 
     /** Read by the screen after every `notify()`. Build it from fields; never fetch or do slow work here. */
     public abstract get state(): TState;
@@ -42,7 +44,7 @@ export abstract class Controller<TState> extends Observable {
      */
     public start(): void {
         this.initialize();
-        if (this.loadsInFlight === 0 && this.currentStatus === 'loading') {
+        if (this.pendingFirstLoads === 0 && this.currentStatus === 'loading') {
             this.settle('ready', null);
         }
     }
@@ -69,30 +71,31 @@ export abstract class Controller<TState> extends Observable {
     }
 
     /**
-     * Loads the screen's data. Before the screen is ready, success makes it 'ready' and failure
-     * makes it 'error' (shown full screen, with a retry that calls `load()` again). Once ready, a
-     * load is a refresh: the data stays on screen and a failure shows as a toast. Never rejects.
+     * Loads the screen's data. Before the screen is first ready, the status settles once every
+     * load started so far has finished: 'ready' if all succeeded, otherwise 'error' with the first
+     * failure's message (shown full screen; retry by calling `load()` again). Once ready, a load is
+     * a refresh: the data stays on screen and a failure shows as a toast. Never rejects.
      */
     protected async load(task: () => Promise<void>): Promise<void> {
-        const decidesStatus = this.currentStatus !== 'ready';
-        if (decidesStatus && this.currentStatus === 'error') {
+        if (this.currentStatus === 'ready') {
+            await this.run(task);
+            return;
+        }
+        if (this.currentStatus === 'error') {
             this.settle('loading', null);
         }
-        this.loadsInFlight += 1;
+        this.pendingFirstLoads += 1;
         try {
             await task();
-            if (decidesStatus) {
-                this.settle('ready', null);
-            }
         } catch (error) {
-            const message = this.describeAndReport(error);
-            if (decidesStatus) {
-                this.settle('error', message);
-            } else {
-                $S(ToastService).show(message, 'error');
-            }
+            this.firstLoadFailure ??= this.describeAndReport(error);
         } finally {
-            this.loadsInFlight -= 1;
+            this.pendingFirstLoads -= 1;
+            if (this.pendingFirstLoads === 0) {
+                const failure = this.firstLoadFailure;
+                this.firstLoadFailure = null;
+                this.settle(failure ? 'error' : 'ready', failure);
+            }
         }
     }
 
