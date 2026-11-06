@@ -117,7 +117,7 @@ packages/client/   features/<feature>/: controllers, client services, shared vie
 - A service extends `Observable` only when screens must react to its changes live; otherwise it's a plain class. [§19.1]
 - Its interface speaks the domain: one named snapshot for displayed data, intent methods instead of setters, question methods only for domain rules several callers share. A getter per field is a red flag. [§19.6, §5.1]
 - A library (Zustand, query-core, Better Auth) may live inside a service, never in screens or controllers. [§5.1]
-- Dependencies come through the constructor, every argument named, no `undefined` placeholders. A default must be what production wants, so only `{ clock, random }` default (to the real ones) and a dependency never defaults. Product constants live in the module that owns the rule. [§8.2, §10.9]
+- Dependencies come through the constructor, every argument named, no `undefined` placeholders. Declare each as a field and assign it in the constructor; apps never use parameter properties (`constructor(private readonly x: X)`), because Node runs the API by stripping types only. `erasableSyntaxOnly` enforces it. A default must be what production wants, so only `{ clock, random }` default (to the real ones) and a dependency never defaults. Product constants live in the module that owns the rule. [§8.2, §10.9]
 
 ### Server data on the client
 

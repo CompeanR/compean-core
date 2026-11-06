@@ -637,3 +637,30 @@ describe('Controller with several first loads', () => {
         expect(seen).not.toContain('ready');
     });
 });
+
+describe('register with fakes', () => {
+    class RealNotes {
+        private readonly secret = 'internal';
+
+        public list(): string[] {
+            return [this.secret];
+        }
+    }
+
+    class FakeNotes {
+        public readonly added: string[] = [];
+
+        public list(): string[] {
+            return ['fake'];
+        }
+    }
+
+    it('accepts a fake with the public shape of the service, extra members included, without a cast', () => {
+        resetServices();
+        const fake = new FakeNotes();
+
+        register(RealNotes, fake);
+
+        expect($S(RealNotes).list()).toEqual(['fake']);
+    });
+});

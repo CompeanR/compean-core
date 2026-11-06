@@ -7,6 +7,9 @@ const PLATFORM_IMPORT =
     /^(react|react-dom|react-native|react-router|expo)(\/|$)|^react-native-|^react-router-|^@tanstack\/react-|^expo-|^@expo\/|^@react-navigation\//;
 /** What packages/domain may import: its own files and zod. */
 const DOMAIN_ALLOWED = /^(\.{1,2}\/|zod(\/|$))/;
+/** Tests may import their runner and test libraries, which the platform and purity rules would flag. */
+const TEST_FILES = ['**/*.test.{ts,tsx}'];
+
 /** TanStack Router calls whose options object defines a route. */
 const ROUTE_FACTORIES = new Set([
     'createFileRoute',
@@ -20,8 +23,8 @@ const ROUTE_FACTORIES = new Set([
 const LIBRARY_OWNERS: ReadonlyArray<{ library: RegExp; owner: RegExp; ownerName: string }> = [
     {
         library: /^@tanstack\/(query-core|react-query)(\/|$)/,
-        owner: /\.service\.tsx?$/,
-        ownerName: 'a client service (*.service.ts)',
+        owner: /(\.service|(^|[\\/])boot)\.tsx?$/,
+        ownerName: 'a client service (*.service.ts) or boot.ts',
     },
     { library: /^better-auth(\/|$)/, owner: /(^|[\\/])auth\.service\.tsx?$/, ownerName: 'the auth service (auth.service.ts)' },
 ];
@@ -156,10 +159,12 @@ export function compeanRules(): Linter.Config[] {
         { plugins: { compean: plugin } },
         {
             files: ['packages/client/**/*.{ts,tsx}', '**/*.controller.{ts,tsx}'],
+            ignores: TEST_FILES,
             rules: { 'compean/platform-free': 'error' },
         },
         {
             files: ['packages/domain/**/*.{ts,tsx}'],
+            ignores: TEST_FILES,
             rules: { 'compean/domain-pure': 'error' },
         },
         {
@@ -168,6 +173,7 @@ export function compeanRules(): Linter.Config[] {
         },
         {
             files: ['packages/client/**/*.{ts,tsx}', 'apps/web/**/*.{ts,tsx}', 'apps/mobile/**/*.{ts,tsx}'],
+            ignores: TEST_FILES,
             rules: { 'compean/library-owners': 'error' },
         },
     ];

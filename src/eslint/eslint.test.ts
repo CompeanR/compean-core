@@ -108,3 +108,19 @@ describe('compeanRules, review fixes', () => {
         }
     });
 });
+
+describe('compeanRules, test files and boot', () => {
+    it('lets test files import their runner and test libraries', async () => {
+        expect(await ruleIds(`import { describe } from 'vitest';`, 'packages/domain/note.model.test.ts')).toEqual([]);
+        expect(
+            await ruleIds(
+                `import { render } from '@testing-library/react';`,
+                'packages/client/features/notes/notes.controller.test.ts',
+            ),
+        ).toEqual([]);
+    });
+
+    it('lets boot.ts build the query cache', async () => {
+        expect(await ruleIds(`import { QueryClient } from '@tanstack/query-core';`, 'apps/web/src/boot.ts')).toEqual([]);
+    });
+});
